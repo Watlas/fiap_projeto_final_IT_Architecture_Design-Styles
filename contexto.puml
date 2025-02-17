@@ -1,0 +1,25 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+LAYOUT_LEFT_RIGHT()
+
+' Usuário
+Person(user, "User", "Editor/Reporter who uploads videos and receives notifications.")
+
+' Camada de Serviços da Aplicação
+System(systemFrames, "System Process Video to Frame", "Receives videos and transforms them into frames.")
+
+' Serviços Externos
+System_Ext(notificationService, "Notification API", "Handles user notifications.")
+System_Ext(cloudServices, "Cloud Services (AWS)", "Handles video storage, authentication, and communication between services.")
+
+' Interações de Usuário
+Rel(user, systemFrames, "Uploads video")
+
+' Fluxo de Autenticação e Armazenamento
+Rel(systemFrames, cloudServices, "Authenticates, stores video in S3, and sends message to processing queue")
+
+' Notificação ao Usuário
+Rel(systemFrames, notificationService, "Uses")
+Rel(notificationService, user, "Notifies user about video processing/completion")
+
+@enduml

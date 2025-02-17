@@ -1,0 +1,53 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+LAYOUT_LEFT_RIGHT()
+
+' Usuário
+Person(user, "User", "Reporter/Editor who uploads videos and receives notifications.")
+
+' Serviços Externos
+System_Ext(cognito, "AWS Cognito", "Handles authentication and provides JWT tokens.")
+System_Ext(s3, "AWS S3", "Stores uploaded and processed videos.")
+System_Ext(sqsProcessing, "AWS SQS (Processing Queue)", "Queue for video processing requests.")
+System_Ext(sqsNotification, "AWS SQS (Notification Queue)", "Queue for notification messages.")
+System_Ext(notificationService, "Notification API", "Sends notifications to users.")
+
+
+' Aplicação
+System_Boundary(application, "Application Services") {
+
+    ' API Layer - Responsável por entrada de dados
+    Container(serviceIO, "Service Input/Output", "Spring Boot", "Handles video uploads, authentication, and metadata storage.")
+
+    ' Processamento de Vídeo
+    Container(serviceProcess, "Service Video Processing", "Spring Boot", "Processes videos and extracts frames.")
+
+    ' Banco de Dados
+    ContainerDb(mySql, "MySQL", "Stores user data and video metadata.")
+
+}
+
+' Fluxo de Autenticação
+Rel(user, cognito, "Authenticates via")
+Rel(cognito, serviceIO, "Routes authentication requests to Service IO")
+
+' Fluxo de Upload de Vídeo
+Rel(serviceIO, s3, "Uploads video to")
+
+' Fluxo de Mensagens para Processamento
+Rel(serviceIO, sqsProcessing, "Sends processing request to")
+Rel(sqsNotification , serviceIO, "Receives notification when video is ready")
+
+' Persistência de Dados
+Rel(serviceIO, mySql, "Stores video metadata in")
+
+' Fluxo de Processamento de Vídeo
+Rel(sqsProcessing , serviceProcess, "Consumes processing request from")
+Rel(s3 , serviceProcess, "Downloads video from")
+Rel(serviceProcess, s3, "Uploads processed video to")
+Rel(serviceProcess, sqsNotification, "Sends completion notification with frame links")
+
+' Notificações ao Usuário
+Rel(serviceIO, notificationService, "Sends notification via")
+
+@enduml

@@ -1,0 +1,79 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+LAYOUT_LEFT_RIGHT()
+
+' Usuário
+Person(user, "User", "Reporter/Editor who uploads videos and receives notifications.")
+
+' Camada de Entrada de Dados
+Container(serviceIO, "Service Input/Output", "Spring Boot", "Handles video uploads, authentication, and metadata storage.")
+
+' Processamento de Vídeo
+Container(serviceProcess, "Service Video Processing", "Spring Boot", "Processes videos and extracts frames.")
+
+' Banco de Dados
+ContainerDb(mySql, "MySql", "Stores user data and video metadata.")
+
+' Serviços Externos
+System_Ext(cognito, "AWS Cognito", "Handles authentication and provides JWT tokens.")
+System_Ext(s3, "AWS S3", "Stores uploaded and processed videos.")
+System_Ext(sqsProcessing, "AWS SQS (Processing Queue)", "Queue for video processing requests.")
+System_Ext(sqsNotification, "AWS SQS (Notification Queue)", "Queue for notification messages.")
+System_Ext(notificationService, "Notification API", "Sends notifications to users.")
+
+' Camada de Processamento de Vídeo
+System_Boundary(application1, "Application Service Video Processing") {
+    Component(adapterQueueProcess, "Queue Adapter", "Adapter", "Handles message queue operations.")
+    Component(adapterStorageProcess, "Storage Adapter", "Adapter", "Handles file interactions with S3.")
+    Component(serviceFrame, "Frame Processor", "Service", "Processes videos into frames.")
+}
+
+' Camada de Entrada de Dados
+System_Boundary(application2, "Application Services Input/Output") {
+    Component(adapterQueueIO, "Queue Adapter", "Adapter", "Manages queue communication for messages.")
+    Component(adapterStorageIO, "Storage Adapter", "Adapter", "Handles file uploads and downloads.")
+    Component(repository, "Repository", "RepositoryJpa", "Stores and retrieves metadata.")
+    Component(adapterNotification, "Notification Adapter", "Adapter", "Handles user notifications.")
+}
+
+' Fluxo de Autenticação
+Rel(user, cognito, "Authenticates via")
+Rel(cognito, serviceIO, "Routes requests to Service IO")
+
+' Fluxo de Upload de Vídeo
+Rel(serviceIO, adapterStorageIO, "Uploads video via")
+Rel(adapterStorageIO, s3, "Stores video in")
+
+' Fluxo de Mensagens para Processamento
+Rel(serviceIO, adapterQueueIO, "Sends message process")
+Rel(adapterQueueIO, sqsProcessing, "Sends message for video processing")
+
+
+
+' Persistência de Dados
+Rel(serviceIO, repository, "Stores metadata in")
+Rel(repository, mySql, "Persists video metadata")
+
+' Fluxo de Processamento de Vídeo
+Rel( serviceProcess , adapterQueueProcess, "Consumes")
+Rel( sqsProcessing , adapterQueueProcess, "Consumes message with video info")
+
+Rel(serviceProcess, adapterStorageProcess, "Downloads")
+Rel(s3 ,adapterStorageProcess , "Downloads video from")
+
+Rel(serviceProcess, serviceFrame, "Processes video into frames")
+Rel(serviceProcess, adapterStorageProcess, "Uploads")
+Rel(adapterStorageProcess, s3, "Uploads frame to")
+
+' Notificações ao Usuário
+Rel(serviceProcess, adapterQueueProcess, "Sends")
+Rel(adapterQueueProcess, sqsNotification, "Sends notification that video is processed and frame is saved")
+
+Rel(serviceIO, adapterQueueIO, "Consumes")
+Rel(sqsNotification , adapterQueueIO, "Consumes message that video was processed")
+
+Rel(serviceIO, adapterNotification, "Notifies")
+Rel(adapterNotification, notificationService, "Notifies user that video processing is complete and frame is available")
+
+
+@enduml
